@@ -1,0 +1,26 @@
+# .gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.env
+
+# Environment variables
+backend/.env
+backend/objects/
+
+# Downloaded Objaverse objects
+~/.objaverse/
+
+# Node modules (if you decide to use npm in frontend)
+frontend/node_modules/
+
+# Other
+.DS_Store
