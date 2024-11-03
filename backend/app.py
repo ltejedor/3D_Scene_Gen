@@ -149,7 +149,7 @@ async def generate_scene(request: Request):
         file_url = f"/downloads/{relative_path.replace(os.sep, '/')}"
         
         object_annotation = annotations.get(selected_uid, {})
-        
+        print(object_annotation)
         response = {
             "uid": selected_uid,
             "name": object_annotation.get('name', ''),

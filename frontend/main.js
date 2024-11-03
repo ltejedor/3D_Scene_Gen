@@ -10,7 +10,12 @@ function initScene() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xeeeeee);
 
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+    );
     camera.position.set(0, 5, 10);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -33,7 +38,7 @@ function initScene() {
     // Handle window resize
     window.addEventListener('resize', onWindowResize, false);
 
-    // Simple orbit controls
+    // Orbit controls
     controls = new THREE.OrbitControls(camera, renderer.domElement);
 }
 
@@ -64,30 +69,40 @@ function loadObject(glbUrl, position) {
         glbUrl,
         function(gltf) {
             const model = gltf.scene;
-            model.position.set(position.x, position.y, position.z);
+
+            // Compute the bounding box of the model
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+
+            // Define the desired size (e.g., max dimension = 1 unit)
+            const desiredSize = 1; // Adjust as needed
+
+            // Calculate the scaling factor
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scaleFactor = desiredSize / maxDim;
+
+            // Apply the scaling factor to the model
+            model.scale.multiplyScalar(scaleFactor);
+
+            // Recompute bounding box after scaling
+            box.setFromObject(model);
+            const sizeAfterScale = box.getSize(new THREE.Vector3());
+            const centerAfterScale = box.getCenter(new THREE.Vector3());
+            const minY = box.min.y;
+
+            // Adjust model position
+            model.position.x = position.x - centerAfterScale.x;
+            model.position.z = position.z - centerAfterScale.z;
+
+            // For y-axis, align the base of the model with the ground (y = position.y)
+            model.position.y = position.y - minY;
+
             scene.add(model);
             objects.push(model);
 
             // Center the camera on the loaded object
-            const box = new THREE.Box3().setFromObject(model);
-            const center = box.getCenter(new THREE.Vector3());
-            const size = box.getSize(new THREE.Vector3());
-
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const fov = camera.fov * (Math.PI / 180);
-            let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
-
-            camera.position.set(center.x, center.y, center.z + cameraZ);
-            camera.lookAt(center);
-
-            const minZ = box.min.z;
-            const cameraToFarEdge = (minZ < 0) ? -minZ + cameraZ : cameraZ - minZ;
-
-            camera.far = cameraToFarEdge * 3;
-            camera.updateProjectionMatrix();
-
-            controls.target.set(center.x, center.y, center.z);
-            controls.update();
+            adjustCamera(model);
         },
         undefined,
         function(error) {
@@ -95,6 +110,28 @@ function loadObject(glbUrl, position) {
             alert(`Failed to load model from ${glbUrl}. Check console for details.`);
         }
     );
+}
+
+function adjustCamera(model) {
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = camera.fov * (Math.PI / 180);
+    let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+
+    camera.position.set(center.x, center.y + cameraZ / 3, center.z + cameraZ * 1.5);
+    camera.lookAt(center);
+
+    const minZ = box.min.z;
+    const cameraToFarEdge = (minZ < 0) ? -minZ + cameraZ : cameraZ - minZ;
+
+    camera.far = cameraToFarEdge * 3;
+    camera.updateProjectionMatrix();
+
+    controls.target.set(center.x, center.y, center.z);
+    controls.update();
 }
 
 document.getElementById('generateBtn').addEventListener('click', async () => {
