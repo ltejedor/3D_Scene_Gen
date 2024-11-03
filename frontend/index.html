@@ -8,12 +8,26 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="controls">
-        <input type="text" id="promptInput" placeholder="Enter your scene description">
-        <button id="generateBtn">Generate Scene</button>
+    <div id="main-container">
+        <div id="controls">
+            <input type="text" id="promptInput" placeholder="Enter your scene description">
+            <button id="generateBtn">Generate Scene</button>
+        </div>
+        <div id="loading" style="display: none;">Loading...</div>
+        <div id="scene-container"></div>
     </div>
-    <div id="loading" style="display: none;">Loading...</div>
-    <div id="scene-container"></div>
+    
+    <div id="chat-panel">
+        <div id="chat-messages">
+            <!-- Messages will be inserted here -->
+        </div>
+        <div id="chat-input-container">
+            <form id="chat-input-form">
+                <input type="text" id="chat-input" placeholder="Type your message...">
+                <button type="submit" id="chat-submit">Send</button>
+            </form>
+        </div>
+    </div>
 
     <!-- Three.js Library -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -24,5 +38,8 @@
 
     <!-- Main JavaScript -->
     <script src="main.js"></script>
+
+    <!-- Chat JavaScript -->
+    <script src="chat.js"></script>
 </body>
 </html>

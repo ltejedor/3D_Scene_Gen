@@ -14,6 +14,8 @@ import logging
 import traceback
 import random
 
+import google.generativeai as genai
+
 # Configure Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -168,3 +170,47 @@ async def generate_scene(request: Request):
         logger.error(f"Unexpected error in generate_scene: {e}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+    
+
+@app.post("/gemini_call")
+async def gemini_call(request: Request) -> Dict:
+    """
+    Endpoint to prompt Gemini API.
+    Expects a JSON body with a "prompt" field.
+    Returns the Gemini response.
+    """
+    try:
+        # Get the request body
+        body = await request.json()
+        prompt = body.get("prompt")
+        
+        if not prompt:
+            raise HTTPException(status_code=400, detail="Prompt is required")
+
+        # Configure Gemini with API key from environment variables
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise HTTPException(
+                status_code=500, 
+                detail="Google API key not found in environment variables"
+            )
+
+        genai.configure(api_key=api_key)
+        
+        # Initialize the model and generate response
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        
+        # Return the response
+        return {
+            "status": "success",
+            "response": response.text
+        }
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing request: {str(e)}"
+        )
