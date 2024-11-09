@@ -12,3 +12,4 @@ plotly
 pandas 
 numpy 
 scikit-learn
+umap-learn

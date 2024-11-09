@@ -7,19 +7,17 @@ from sklearn.manifold import TSNE
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
+import umap
 from typing import List, Dict, Tuple
 
-def load_data() -> pd.DataFrame:
-    """Load and prepare data for visualization"""
-    # Get the path to stories.json in parent directory
+def load_data(viz_params: Dict) -> pd.DataFrame:
+    """Load and prepare data with configurable visualization parameters"""
     parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    stories_path = os.path.join(parent_dir, 'stories.json')
+    stories_path = os.path.join(parent_dir, 'stories_smaller_chunks.json')
     
-    # Load the stories
     with open(stories_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
     
-    # Collect all chunks with their metadata
     rows = []
     embeddings = []
     
@@ -35,7 +33,6 @@ def load_data() -> pd.DataFrame:
                 'timing': chunk.get('timing', 'unknown'),
             }
             
-            # Add manipulation tactics as binary values (True if score >= 2)
             if 'manipulation_tactics' in chunk:
                 for tactic, score in chunk['manipulation_tactics'].items():
                     row[f'has_{tactic}'] = bool(score >= 2)
@@ -46,31 +43,54 @@ def load_data() -> pd.DataFrame:
     df = pd.DataFrame(rows)
     embeddings_array = np.array(embeddings)
     
-    # Generate PCA and t-SNE
-    pca = PCA(n_components=2)
-    tsne = TSNE(n_components=2, random_state=42)
+    # Generate embeddings with configurable parameters
     
-    # Add coordinates to dataframe
+    # PCA
+    pca = PCA(
+        n_components=2,
+        random_state=42
+    )
     df[['PCA1', 'PCA2']] = pca.fit_transform(embeddings_array)
+    
+    # t-SNE
+    tsne = TSNE(
+        n_components=2,
+        perplexity=viz_params['tsne_perplexity'],
+        early_exaggeration=viz_params['tsne_early_exaggeration'],
+        learning_rate=viz_params['tsne_learning_rate'],
+        n_iter=viz_params['tsne_n_iter'],
+        random_state=42
+    )
     df[['TSNE1', 'TSNE2']] = tsne.fit_transform(embeddings_array)
+    
+    # UMAP
+    umap_reducer = umap.UMAP(
+        n_neighbors=viz_params['umap_n_neighbors'],
+        min_dist=viz_params['umap_min_dist'],
+        n_components=2,
+        metric=viz_params['umap_metric'],
+        random_state=42
+    )
+    df[['UMAP1', 'UMAP2']] = umap_reducer.fit_transform(embeddings_array)
     
     return df
 
 def create_plot(df: pd.DataFrame, plot_type: str, selected_categories: List[str]) -> go.Figure:
     """Create plotly figure based on selected visualization type and categories"""
     
-    # Determine which coordinates to use
     if plot_type == 'PCA':
         x_col, y_col = 'PCA1', 'PCA2'
         title = 'PCA Visualization of Story Chunks'
-    else:
+    elif plot_type == 't-SNE':
         x_col, y_col = 'TSNE1', 'TSNE2'
         title = 't-SNE Visualization of Story Chunks'
+    else:  # UMAP
+        x_col, y_col = 'UMAP1', 'UMAP2'
+        title = 'UMAP Visualization of Story Chunks'
 
-    # Create base figure with all points in gray
     fig = go.Figure()
     
-    # Add base scatter plot with all points in gray
+    # Base scatter plot
     fig.add_trace(go.Scatter(
         x=df[x_col],
         y=df[y_col],
@@ -82,7 +102,7 @@ def create_plot(df: pd.DataFrame, plot_type: str, selected_categories: List[str]
         showlegend=False
     ))
     
-    # Color scheme for different categories
+    # Color scheme
     colors = {
         'beginning': '#ff7f0e',
         'middle': '#2ca02c',
@@ -95,10 +115,8 @@ def create_plot(df: pd.DataFrame, plot_type: str, selected_categories: List[str]
         'triangulation': '#1f77b4'
     }
     
-    # Add selected categories
     for category in selected_categories:
         if category in ['beginning', 'middle', 'leaving', 'after']:
-            # Time period categories
             mask = df['timing'] == category
             if mask.any():
                 fig.add_trace(go.Scatter(
@@ -111,7 +129,6 @@ def create_plot(df: pd.DataFrame, plot_type: str, selected_categories: List[str]
                     name=category.title()
                 ))
         else:
-            # Manipulation tactics
             column = f'has_{category}'
             if column in df.columns:
                 mask = df[column]
@@ -126,7 +143,6 @@ def create_plot(df: pd.DataFrame, plot_type: str, selected_categories: List[str]
                         name=category.replace('_', ' ').title()
                     ))
     
-    # Update layout
     fig.update_layout(
         title=title,
         template='plotly_white',
@@ -147,34 +163,80 @@ def main():
     st.set_page_config(layout="wide")
     st.title("Story Chunk Visualization")
     
-    # Load data
-    df = load_data()
+    # Sidebar controls for visualization parameters
+    st.sidebar.header("Visualization Parameters")
     
-    # Sidebar controls
-    st.sidebar.header("Controls")
+    # t-SNE parameters
+    st.sidebar.subheader("t-SNE Parameters")
+    tsne_params = {
+        'tsne_perplexity': st.sidebar.slider(
+            "Perplexity (balance between local and global structure)",
+            5, 100, 30,
+            help="Higher values consider more neighbors (global structure), lower values focus on local structure"
+        ),
+        'tsne_early_exaggeration': st.sidebar.slider(
+            "Early Exaggeration",
+            1.0, 50.0, 12.0,
+            help="Higher values create more space between clusters"
+        ),
+        'tsne_learning_rate': st.sidebar.slider(
+            "Learning Rate",
+            10.0, 1000.0, 200.0,
+            help="Higher values make the visualization more spread out"
+        ),
+        'tsne_n_iter': st.sidebar.slider(
+            "Number of Iterations",
+            250, 2000, 1000,
+            help="More iterations may improve quality but take longer"
+        )
+    }
+    
+    # UMAP parameters
+    st.sidebar.subheader("UMAP Parameters")
+    umap_params = {
+        'umap_n_neighbors': st.sidebar.slider(
+            "Number of Neighbors",
+            2, 200, 15,
+            help="Higher values preserve more global structure"
+        ),
+        'umap_min_dist': st.sidebar.slider(
+            "Minimum Distance",
+            0.0, 1.0, 0.1,
+            help="Lower values create tighter clusters"
+        ),
+        'umap_metric': st.sidebar.selectbox(
+            "Distance Metric",
+            ['euclidean', 'manhattan', 'cosine'],
+            help="Different ways to measure distance between points"
+        )
+    }
+    
+    # Combine all visualization parameters
+    viz_params = {**tsne_params, **umap_params}
+    
+    # Load data with current parameters
+    df = load_data(viz_params)
     
     # Visualization type selector
     viz_type = st.sidebar.radio(
         "Select Visualization Type",
-        ["PCA", "t-SNE"]
+        ["PCA", "t-SNE", "UMAP"]
     )
     
     # Category selectors
-    st.sidebar.subheader("Time Periods")
+    st.sidebar.subheader("Categories")
     time_periods = st.sidebar.multiselect(
         "Select Time Periods",
         ["beginning", "middle", "leaving", "after"],
         default=[]
     )
     
-    st.sidebar.subheader("Manipulation Tactics")
     tactics = st.sidebar.multiselect(
         "Select Manipulation Tactics",
         ["gaslighting", "silent_treatment", "love_bombing", "projection", "triangulation"],
         default=[]
     )
     
-    # Combine selected categories
     selected_categories = time_periods + tactics
     
     # Create and display plot

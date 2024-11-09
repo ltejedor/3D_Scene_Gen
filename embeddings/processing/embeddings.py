@@ -5,7 +5,7 @@ from typing import Dict, List
 
 # Get the path to stories.json in parent directory
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-stories_path = os.path.join(parent_dir, 'stories.json')
+stories_path = os.path.join(parent_dir, 'stories_smaller_chunks.json')
 
 # Configure Gemini
 api_key = os.getenv("GOOGLE_API_KEY")
