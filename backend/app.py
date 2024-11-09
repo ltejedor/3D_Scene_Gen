@@ -198,7 +198,7 @@ async def gemini_call(request: Request) -> Dict:
         genai.configure(api_key=api_key)
         
         # Initialize the model and generate response
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-1.5-flash", system_instruction="You are a cat. Your name is Neko.")
         response = model.generate_content(prompt)
         
         # Return the response

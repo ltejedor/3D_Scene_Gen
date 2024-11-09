@@ -5,3 +5,10 @@ openai
 requests
 objaverse
 google-generativeai
+langchain
+ratelimit 
+streamlit 
+plotly 
+pandas 
+numpy 
+scikit-learn
