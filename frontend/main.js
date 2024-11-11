@@ -1,5 +1,3 @@
-// frontend/main.js
-
 // Initialize Three.js Scene
 let scene, camera, renderer, controls;
 let objects = [];
@@ -10,13 +8,17 @@ function initScene() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xeeeeee);
 
+    // Set up camera with fixed position
     camera = new THREE.PerspectiveCamera(
-        75,
+        65,  // Slightly wider FOV to see more of the room
         window.innerWidth / window.innerHeight,
         0.1,
         1000
     );
-    camera.position.set(0, 5, 10);
+    
+    // Position camera to view the entire scene
+    camera.position.set(0, 3, 5);  // Centered, slightly elevated, pulled back
+    camera.lookAt(0, 1, -2);  // Look towards the window
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -35,12 +37,127 @@ function initScene() {
     const gridHelper = new THREE.GridHelper(20, 20);
     scene.add(gridHelper);
 
+    // Set up orbit controls with constraints
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 1, -2);  // Set orbit target to center of room
+    controls.minDistance = 3;        // Don't allow camera too close
+    controls.maxDistance = 10;       // Don't allow camera too far
+    controls.maxPolarAngle = Math.PI / 2;  // Don't allow camera below ground
+    controls.update();
+
     // Handle window resize
     window.addEventListener('resize', onWindowResize, false);
-
-    // Orbit controls
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    
+    // Load scene objects
+    loadSceneObjects();
 }
+
+function loadObject(glbUrl, position, rotation = { y: 0 }, objectType = '') {
+    const loader = new THREE.GLTFLoader();
+    
+    loader.load(
+        glbUrl,
+        function(gltf) {
+            const model = gltf.scene;
+
+            // Compute the bounding box of the model
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+
+            // Adjust desired size based on object type
+            let desiredSize = 1;
+            switch(objectType) {
+                // Original furniture
+                case 'window':
+                    desiredSize = 2;
+                    break;
+                case 'mirror':
+                    desiredSize = 1.5;
+                    break;
+                case 'couch':
+                    desiredSize = 1.8;
+                    break;
+                case 'coffee table':
+                    desiredSize = 1;
+                    break;
+                case 'bookshelf':
+                    desiredSize = 1.5;
+                    break;
+                // New objects
+                case 'gift':
+                    desiredSize = 0.3;
+                    break;
+                case 'side table':
+                    desiredSize = 1;
+                    break;
+                case 'lamp':
+                    desiredSize = 0.8;
+                    break;
+                case 'cards':
+                    desiredSize = 0.15;
+                    break;
+                case 'radio':
+                    desiredSize = 0.3;
+                    break;
+                case 'journal notebook':
+                    desiredSize = 0.2;
+                    break;
+                case 'telephone':
+                    desiredSize = 0.15;
+                    break;
+                default:
+                    desiredSize = 1;
+            }
+
+            // Calculate and apply scaling
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scaleFactor = desiredSize / maxDim;
+            model.scale.multiplyScalar(scaleFactor);
+
+            // Recompute bounding box after scaling
+            box.setFromObject(model);
+            const minY = box.min.y;
+
+            // Set position and rotation
+            model.position.x = position.x;
+            model.position.z = position.z;
+            model.position.y = position.y - minY;
+            model.rotation.y = THREE.MathUtils.degToRad(rotation.y);
+
+            scene.add(model);
+            objects.push(model);
+        },
+        undefined,
+        function(error) {
+            console.error(`Error loading model:`, error);
+        }
+    );
+}
+
+async function loadSceneObjects() {
+    try {
+        const response = await fetch('http://localhost:8000/initialize_scene');
+        if (!response.ok) {
+            throw new Error('Failed to initialize scene');
+        }
+
+        const data = await response.json();
+        
+        // Clear existing scene
+        clearScene();
+
+        // Load each object
+        data.objects.forEach(obj => {
+            const absoluteURL = `http://localhost:8000${obj.fileURL}`;
+            loadObject(absoluteURL, obj.position, obj.rotation, obj.type);
+        });
+
+    } catch (error) {
+        console.error('Error loading scene objects:', error);
+    }
+}
+
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -55,130 +172,11 @@ function animate() {
 }
 
 function clearScene() {
-    // Remove existing objects
     objects.forEach(obj => {
         scene.remove(obj);
     });
     objects = [];
 }
-
-function loadObject(glbUrl, position) {
-    const loader = new THREE.GLTFLoader();
-    
-    loader.load(
-        glbUrl,
-        function(gltf) {
-            const model = gltf.scene;
-
-            // Compute the bounding box of the model
-            const box = new THREE.Box3().setFromObject(model);
-            const size = box.getSize(new THREE.Vector3());
-            const center = box.getCenter(new THREE.Vector3());
-
-            // Define the desired size (e.g., max dimension = 1 unit)
-            const desiredSize = 1; // Adjust as needed
-
-            // Calculate the scaling factor
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const scaleFactor = desiredSize / maxDim;
-
-            // Apply the scaling factor to the model
-            model.scale.multiplyScalar(scaleFactor);
-
-            // Recompute bounding box after scaling
-            box.setFromObject(model);
-            const sizeAfterScale = box.getSize(new THREE.Vector3());
-            const centerAfterScale = box.getCenter(new THREE.Vector3());
-            const minY = box.min.y;
-
-            // Adjust model position
-            model.position.x = position.x - centerAfterScale.x;
-            model.position.z = position.z - centerAfterScale.z;
-
-            // For y-axis, align the base of the model with the ground (y = position.y)
-            model.position.y = position.y - minY;
-
-            scene.add(model);
-            objects.push(model);
-
-            // Center the camera on the loaded object
-            adjustCamera(model);
-        },
-        undefined,
-        function(error) {
-            console.error(`Error loading model from ${glbUrl}:`, error);
-            alert(`Failed to load model from ${glbUrl}. Check console for details.`);
-        }
-    );
-}
-
-function adjustCamera(model) {
-    const box = new THREE.Box3().setFromObject(model);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const fov = camera.fov * (Math.PI / 180);
-    let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
-
-    camera.position.set(center.x, center.y + cameraZ / 3, center.z + cameraZ * 1.5);
-    camera.lookAt(center);
-
-    const minZ = box.min.z;
-    const cameraToFarEdge = (minZ < 0) ? -minZ + cameraZ : cameraZ - minZ;
-
-    camera.far = cameraToFarEdge * 3;
-    camera.updateProjectionMatrix();
-
-    controls.target.set(center.x, center.y, center.z);
-    controls.update();
-}
-
-document.getElementById('generateBtn').addEventListener('click', async () => {
-    const prompt = document.getElementById('promptInput').value.trim();
-    if (!prompt) {
-        alert("Please enter a scene description.");
-        return;
-    }
-
-    // Show loading indicator
-    document.getElementById('loading').style.display = 'block';
-
-    try {
-        const response = await fetch('http://localhost:8000/generate_scene', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ prompt })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'Error generating scene.');
-        }
-
-        const data = await response.json();
-        console.log('Response:', data);
-
-        // Clear existing scene
-        clearScene();
-
-        // Load the new object
-        const objectURL = data.fileURL;
-        const absoluteURL = `http://localhost:8000${objectURL}`; // Adjust if backend is hosted elsewhere
-
-        // For positioning, you can set default values or include in the backend response
-        loadObject(absoluteURL, { x: 0, y: 0, z: 0 });
-
-    } catch (error) {
-        console.error("Failed to generate scene:", error);
-        alert(`Failed to generate scene: ${error.message}`);
-    } finally {
-        // Hide loading indicator
-        document.getElementById('loading').style.display = 'none';
-    }
-});
 
 // Initialize and start animation
 initScene();

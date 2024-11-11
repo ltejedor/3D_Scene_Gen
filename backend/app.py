@@ -13,6 +13,10 @@ from typing import Optional, List, Dict
 import logging
 import traceback
 import random
+import PIL.Image
+import requests
+from io import BytesIO
+from typing import Tuple
 
 import google.generativeai as genai
 
@@ -33,9 +37,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Initialize OpenAI API (Not used in keyword search but kept for potential future use)
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Directory to download Objaverse objects
 DOWNLOAD_DIR = os.path.expanduser("~/.objaverse")
@@ -86,6 +87,7 @@ def find_relevant_object_keyword(prompt: str) -> Optional[str]:
     # Search in object names and tags
     relevant_uids = []
     for uid, annotation in annotations.items():
+        
         name = annotation.get('name', '').lower()
         tags = [tag['name'].lower() for tag in annotation.get('tags', [])]
         categories = [cat['name'].lower() for cat in annotation.get('categories', [])]
@@ -104,6 +106,51 @@ def find_relevant_object_keyword(prompt: str) -> Optional[str]:
         # If no matches, select a random object
         logger.warning(f"No relevant objects found for keyword '{keyword}'. Selecting a random object.")
         return random.choice(uids)
+
+def get_image_from_url(url: str):
+    """Downloads and returns an image as a PIL Image."""
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return PIL.Image.open(BytesIO(response.content))
+    except Exception as e:
+        logger.error(f"Error downloading image from {url}: {e}")
+        return None
+
+async def rate_object_fit(url: str, object_type: str, theme: str) -> Tuple[float, str]:
+    """Rate how well an object fits the theme and its functionality."""
+    try:
+        image = get_image_from_url(url)
+        if not image:
+            return (0, "Failed to load image")
+
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise Exception("Google API key not found")
+        
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-1.5-pro")
+        
+        prompt = f"""
+        Rate this {object_type} for a {theme} room on a scale of 1-5:
+        1. How well does it fit the {theme} theme? (0-5)
+        2. How well does it function as a {object_type}? (0-5)
+
+        Format your response exactly like this:
+        3.5
+        Good match for theme, proper functionality as a {object_type}
+        """
+
+        response = model.generate_content([prompt, image])
+        lines = response.text.strip().split('\n', 1)
+        rating = float(lines[0])
+        explanation = lines[1] if len(lines) > 1 else ""
+        
+        return (rating, explanation)
+        
+    except Exception as e:
+        logger.error(f"Error rating object: {e}")
+        return (0, f"Error: {str(e)}")
 
 def download_object(uid: str) -> Optional[str]:
     """
@@ -214,3 +261,159 @@ async def gemini_call(request: Request) -> Dict:
             status_code=500,
             detail=f"Error processing request: {str(e)}"
         )
+    
+@app.get("/initialize_scene")
+async def initialize_scene():
+    """Initialize the scene with theme-appropriate objects."""
+    try:
+        # Select random theme
+        themes = ["modern minimalist", "cozy cottage", "vintage aesthetic", 
+                 "industrial chic", "bohemian retreat"]
+        theme = random.choice(themes)
+        logger.info(f"Selected theme: {theme}")
+        # Define all objects and their positions
+        objects = [
+            # Original furniture
+            {
+                "keyword": "bookshelf",
+                "position": {"x": 3, "y": 0, "z": -1},
+                "rotation": {"y": 0}
+            },
+            {
+                "keyword": "window",
+                "position": {"x": 0, "y": 1.5, "z": -3},
+                "rotation": {"y": 0}
+            },
+            {
+                "keyword": "mirror",
+                "position": {"x": -3, "y": 1.5, "z": -1},
+                "rotation": {"y": 90}
+            },
+            {
+                "keyword": "couch",
+                "position": {"x": -3, "y": 0, "z": -1},
+                "rotation": {"y": 90}
+            },
+            {
+                "keyword": "coffee table",
+                "position": {"x": -2, "y": 0, "z": 0},
+                "rotation": {"y": 0}
+            },
+            # New furniture and objects
+            {
+                "keyword": "gift",
+                "position": {"x": -2, "y": 0.5, "z": 0},  # On coffee table
+                "rotation": {"y": 0}
+            },
+            {
+                "keyword": "side table",
+                "position": {"x": 3, "y": 0, "z": -2.5},  # Back right
+                "rotation": {"y": 0}
+            },
+            {
+                "keyword": "lamp",
+                "position": {"x": 3, "y": 0.8, "z": -2.5},  # On the side table
+                "rotation": {"y": 0}
+            },
+            # Objects near bookshelf
+            {
+                "keyword": "cards",
+                "position": {"x": 2.7, "y": 0, "z": -0.5},
+                "rotation": {"y": 45}
+            },
+            {
+                "keyword": "radio",
+                "position": {"x": 3.3, "y": 0, "z": -0.5},
+                "rotation": {"y": -20}
+            },
+            {
+                "keyword": "notebook",
+                "position": {"x": 2.5, "y": 0, "z": -0.7},
+                "rotation": {"y": 15}
+            },
+            {
+                "keyword": "telephone",
+                "position": {"x": 3.1, "y": 0, "z": -0.7},
+                "rotation": {"y": -10}
+            }
+        ]
+
+        scene_objects = []
+        
+        # Process each object
+        for item in objects:
+            # Get 5 random matching objects
+            relevant_uids = []
+            for uid, annotation in annotations.items():
+                name = annotation.get('name', '').lower()
+                tags = [tag['name'].lower() for tag in annotation.get('tags', [])]
+                categories = [cat['name'].lower() for cat in annotation.get('categories', [])]
+                
+                if (item["keyword"] in name or 
+                    any(item["keyword"] in tag for tag in tags) or 
+                    any(item["keyword"] in category for category in categories)):
+                    relevant_uids.append(uid)
+
+            if not relevant_uids:
+                logger.warning(f"No objects found for {item['keyword']}")
+                continue
+
+            # Take up to 5 random objects
+            sample_uids = random.sample(relevant_uids, min(5, len(relevant_uids)))
+            
+            # Rate each object
+            best_rating = 0
+            best_uid = None
+            best_explanation = ""
+            
+            for uid in sample_uids:
+                # Get first thumbnail URL
+                thumbnails = annotations[uid].get('thumbnails', {}).get('images', [])
+                if not thumbnails:
+                    continue
+                    
+                image_url = thumbnails[0].get('url')
+                if not image_url:
+                    continue
+                
+                rating, explanation = await rate_object_fit(
+                    image_url, 
+                    item["keyword"],
+                    theme
+                )
+                
+                if rating > best_rating:
+                    best_rating = rating
+                    best_uid = uid
+                    best_explanation = explanation
+
+            # If we found a good object, add it to the scene
+            if best_uid:
+                downloaded_path = download_object(best_uid)
+                if not downloaded_path:
+                    continue
+
+                relative_path = os.path.relpath(downloaded_path, DOWNLOAD_DIR)
+                file_url = f"/downloads/{relative_path.replace(os.sep, '/')}"
+                
+                object_annotation = annotations.get(best_uid, {})
+                scene_objects.append({
+                    "uid": best_uid,
+                    "name": object_annotation.get('name', ''),
+                    "fileURL": file_url,
+                    "position": item["position"],
+                    "rotation": item["rotation"],
+                    "type": item["keyword"],
+                    "rating": best_rating,
+                    "explanation": best_explanation
+                })
+
+        return JSONResponse(content={
+            "theme": theme,
+            "objects": scene_objects
+        })
+
+    except Exception as e:
+        logger.error(f"Error initializing scene: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to initialize scene")
