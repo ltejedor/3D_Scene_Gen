@@ -1,6 +1,13 @@
 // Initialize Three.js Scene
-let scene, camera, renderer, controls;
+let scene, camera, renderer;
 let objects = [];
+let moveForward = false;
+let moveBackward = false;
+let rotateLeft = false;
+let rotateRight = false;
+const moveSpeed = 0.1;
+const rotateSpeed = 0.03;
+const cameraHeight = 0.8; // Lowered camera height
 
 function initScene() {
     const container = document.getElementById('scene-container');
@@ -8,17 +15,17 @@ function initScene() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xeeeeee);
 
-    // Set up camera with fixed position
+    // Set up first-person camera
     camera = new THREE.PerspectiveCamera(
-        65,  // Slightly wider FOV to see more of the room
+        75,  // FOV
         window.innerWidth / window.innerHeight,
         0.1,
         1000
     );
     
-    // Position camera to view the entire scene
-    camera.position.set(0, 3, 5);  // Centered, slightly elevated, pulled back
-    camera.lookAt(0, 1, -2);  // Look towards the window
+    // Set initial camera position and height
+    camera.position.set(0, cameraHeight, 5);
+    camera.lookAt(0, cameraHeight, 0);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -37,19 +44,90 @@ function initScene() {
     const gridHelper = new THREE.GridHelper(20, 20);
     scene.add(gridHelper);
 
-    // Set up orbit controls with constraints
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 1, -2);  // Set orbit target to center of room
-    controls.minDistance = 3;        // Don't allow camera too close
-    controls.maxDistance = 10;       // Don't allow camera too far
-    controls.maxPolarAngle = Math.PI / 2;  // Don't allow camera below ground
-    controls.update();
+    // Add keyboard controls
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
 
     // Handle window resize
     window.addEventListener('resize', onWindowResize, false);
     
     // Load local models
     loadLocalModels();
+}
+
+function onKeyDown(event) {
+    switch(event.code) {
+        case 'ArrowUp':
+        case 'KeyW':
+            moveForward = true;
+            break;
+        case 'ArrowDown':
+        case 'KeyS':
+            moveBackward = true;
+            break;
+        case 'ArrowLeft':
+        case 'KeyA':
+            rotateLeft = true;
+            break;
+        case 'ArrowRight':
+        case 'KeyD':
+            rotateRight = true;
+            break;
+    }
+}
+
+function onKeyUp(event) {
+    switch(event.code) {
+        case 'ArrowUp':
+        case 'KeyW':
+            moveForward = false;
+            break;
+        case 'ArrowDown':
+        case 'KeyS':
+            moveBackward = false;
+            break;
+        case 'ArrowLeft':
+        case 'KeyA':
+            rotateLeft = false;
+            break;
+        case 'ArrowRight':
+        case 'KeyD':
+            rotateRight = false;
+            break;
+    }
+}
+
+// Mouse look controls
+let rotationSpeed = 0.002;
+function onMouseMove(event) {
+    if (document.pointerLockElement === container) {
+        camera.rotation.y -= event.movementX * rotationSpeed;
+    }
+}
+
+function updateCamera() {
+    // Handle rotation
+    if (rotateLeft) {
+        camera.rotation.y += rotateSpeed;
+    }
+    if (rotateRight) {
+        camera.rotation.y -= rotateSpeed;
+    }
+    
+    // Get forward direction
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+    
+    // Handle movement
+    if (moveForward) {
+        camera.position.add(direction.multiplyScalar(moveSpeed));
+    }
+    if (moveBackward) {
+        camera.position.add(direction.multiplyScalar(-moveSpeed));
+    }
+    
+    // Maintain fixed height
+    camera.position.y = cameraHeight;
 }
 
 function loadObject(folderName, position, rotation = { y: 0 }, objectType = '') {
@@ -156,9 +234,10 @@ function onWindowResize() {
 
 function animate() {
     requestAnimationFrame(animate);
-    controls.update();
+    updateCamera();
     renderer.render(scene, camera);
 }
+
 
 function clearScene() {
     objects.forEach(obj => {
@@ -166,6 +245,7 @@ function clearScene() {
     });
     objects = [];
 }
+
 
 // Initialize and start animation
 initScene();
