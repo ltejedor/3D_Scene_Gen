@@ -137,3 +137,25 @@ body {
     color: #666;
     margin-top: 4px;
 }
+
+#object-overlay {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    max-width: 80%;
+    text-align: center;
+    z-index: 1000;
+    transition: opacity 0.3s ease;
+}
+
+#object-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}

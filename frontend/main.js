@@ -8,6 +8,15 @@ let rotateRight = false;
 const moveSpeed = 0.1;
 const rotateSpeed = 0.03;
 const cameraHeight = 0.8; // Lowered camera height
+let highlightedObject = null;
+const INTERACTION_DISTANCE = 2; // Distance threshold for interaction in units
+const objectDescriptions = {
+    'gift_box_with_a_ribbons': "he was very friendly at first and he seemed very low-key and non-threatening so we met at the gym we started hanging out um a little bit but he just would not give up so he was texting me all the time pursuing me all the time always asking me to hang out he he very quickly jumped right into the i love you the i want to be with you forever you're you're perfect for me true love bombing straight from the beginning and he encouraged um you know moving in together and made these really grand promises",
+    'mirror': "I mean, there would have been no way for me to get out if I would have said I'm leaving. Not too long before this had happened, we were in a car accident. And I was like, we were away for a weekend. And he said to me, you know, if you ever leave me, they're going to find you at the bottom of a lake somewhere. And he just said it really subtly, like casually in a conversation",
+    'modern_side_lamp_and_stand': "Shaun started making remarks about my little sister who was twelve at the time. We'd been out for my sister's birthday and I posted a photo of us online; minutes later Shaun was tweeting about how shocking it was one sister could look much more sexy than another, how surprising it was that one person could go from pretty to hideous whilst their younger sister remained gorgeou",
+    'radio_broadcaster': "I said once I wanted to go to university in the future, he suddenly went really off and wouldn\u2019t talk to me for days. Then he said he was furious I\u2019d want to waste my time at university instead of spending it with him! Try and take a step back and think about what you'd think if someone else was in your relationship would you be worried for them?",
+    'telephone':"He triangulated us a lot. So he would say, oh, mom's stupid or oh, mom is this or oh, mom's that. And then I remember one time with our, so my daughter's older and I remember one time my daughter was maybe two and they were sitting playing a game on the floor and I walked into the room and he said, tell mommy to go away. And she's like, mommy, go away",
+};
 
 function initScene() {
     const container = document.getElementById('scene-container');
@@ -53,6 +62,22 @@ function initScene() {
     
     // Load local models
     loadLocalModels();
+}
+
+function createHighlightMaterial(originalMaterial) {
+    if (Array.isArray(originalMaterial)) {
+        return originalMaterial.map(mat => {
+            const highlightMat = mat.clone();
+            highlightMat.emissive = new THREE.Color(0x666666);
+            highlightMat.emissiveIntensity = 0.5;
+            return highlightMat;
+        });
+    } else {
+        const highlightMat = originalMaterial.clone();
+        highlightMat.emissive = new THREE.Color(0x666666);
+        highlightMat.emissiveIntensity = 0.5;
+        return highlightMat;
+    }
 }
 
 function onKeyDown(event) {
@@ -196,6 +221,24 @@ function loadObject(folderName, position, rotation = { y: 0 }, objectType = '') 
             model.position.y = position.y - minY;
             model.rotation.y = THREE.MathUtils.degToRad(rotation.y);
 
+            // Store the object type and original materials
+            model.userData = {
+                type: folderName,
+                originalMaterials: []
+            };
+
+            // Store original materials for each mesh
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.userData.originalMaterial = child.material;
+                    model.userData.originalMaterials.push({
+                        mesh: child,
+                        material: child.material
+                    });
+                }
+            });
+
+
             scene.add(model);
             objects.push(model);
         },
@@ -204,6 +247,53 @@ function loadObject(folderName, position, rotation = { y: 0 }, objectType = '') 
             console.error(`Error loading model:`, error);
         }
     );
+}
+
+function checkObjectProximity() {
+    const interactiveObjects = objects.filter(obj => 
+        ['gift_box_with_a_ribbons', 'mirror', 'modern_side_lamp_and_stand', 
+         'radio_broadcaster', 'telephone', 'coffee_table'].includes(obj.userData.type)
+    );
+
+    let closestObject = null;
+    let closestDistance = Infinity;
+
+    interactiveObjects.forEach(obj => {
+        const distance = camera.position.distanceTo(obj.position);
+        
+        if (distance < INTERACTION_DISTANCE && distance < closestDistance) {
+            closestDistance = distance;
+            closestObject = obj;
+        }
+    });
+
+    // Handle highlighting and overlay
+    if (closestObject !== highlightedObject) {
+        // Remove highlight from previous object
+        if (highlightedObject) {
+            highlightedObject.userData.originalMaterials.forEach(({ mesh, material }) => {
+                mesh.material = material;
+            });
+            document.getElementById('object-overlay').classList.add('hidden');
+        }
+
+        // Add highlight to new object
+        if (closestObject) {
+            closestObject.traverse((child) => {
+                if (child.isMesh) {
+                    child.material = createHighlightMaterial(child.userData.originalMaterial);
+                }
+            });
+            
+            // Show text overlay
+            const overlay = document.getElementById('object-overlay');
+            const description = document.getElementById('object-description');
+            description.textContent = objectDescriptions[closestObject.userData.type];
+            overlay.classList.remove('hidden');
+        }
+
+        highlightedObject = closestObject;
+    }
 }
 
 function loadLocalModels() {
@@ -235,9 +325,9 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
     updateCamera();
+    checkObjectProximity();
     renderer.render(scene, camera);
 }
-
 
 function clearScene() {
     objects.forEach(obj => {
