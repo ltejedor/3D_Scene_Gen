@@ -1,0 +1,11 @@
+Model Information:
+* title:	Telephone
+* source:	https://sketchfab.com/3d-models/telephone-98f689478ea34fd4a18b63a3a780e4e6
+* author:	timtime (https://sketchfab.com/timislav)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Telephone" (https://sketchfab.com/3d-models/telephone-98f689478ea34fd4a18b63a3a780e4e6) by timtime (https://sketchfab.com/timislav) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

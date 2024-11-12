@@ -48,12 +48,13 @@ function initScene() {
     // Handle window resize
     window.addEventListener('resize', onWindowResize, false);
     
-    // Load scene objects
-    loadSceneObjects();
+    // Load local models
+    loadLocalModels();
 }
 
-function loadObject(glbUrl, position, rotation = { y: 0 }, objectType = '') {
+function loadObject(folderName, position, rotation = { y: 0 }, objectType = '') {
     const loader = new THREE.GLTFLoader();
+    const glbUrl = `./assets/${folderName}/scene.gltf`;
     
     loader.load(
         glbUrl,
@@ -68,12 +69,11 @@ function loadObject(glbUrl, position, rotation = { y: 0 }, objectType = '') {
             // Adjust desired size based on object type
             let desiredSize = 1;
             switch(objectType) {
-                // Original furniture
                 case 'window':
-                    desiredSize = 2;
+                    desiredSize = 4;
                     break;
                 case 'mirror':
-                    desiredSize = 1.5;
+                    desiredSize = .75;
                     break;
                 case 'couch':
                     desiredSize = 1.8;
@@ -84,7 +84,6 @@ function loadObject(glbUrl, position, rotation = { y: 0 }, objectType = '') {
                 case 'bookshelf':
                     desiredSize = 1.5;
                     break;
-                // New objects
                 case 'gift':
                     desiredSize = 0.3;
                     break;
@@ -94,14 +93,8 @@ function loadObject(glbUrl, position, rotation = { y: 0 }, objectType = '') {
                 case 'lamp':
                     desiredSize = 0.8;
                     break;
-                case 'cards':
-                    desiredSize = 0.15;
-                    break;
                 case 'radio':
                     desiredSize = 0.3;
-                    break;
-                case 'journal notebook':
-                    desiredSize = 0.2;
                     break;
                 case 'telephone':
                     desiredSize = 0.15;
@@ -135,29 +128,25 @@ function loadObject(glbUrl, position, rotation = { y: 0 }, objectType = '') {
     );
 }
 
-async function loadSceneObjects() {
-    try {
-        const response = await fetch('http://localhost:8000/initialize_scene');
-        if (!response.ok) {
-            throw new Error('Failed to initialize scene');
-        }
+function loadLocalModels() {
+    // Specify each model's folder, position, rotation, and type
+    const models = [
+        { folder: 'bookshelf_cc0', position: { x: -10, y: 0, z: -1 }, rotation: { y: 0 }, type: 'bookshelf' },
+        { folder: 'coffee_table', position: { x: -1, y: 0, z: -1 }, rotation: { y: 45 }, type: 'coffee table' },
+        { folder: 'couch', position: { x: -2, y: 0, z: -1 }, rotation: { y: 90 }, type: 'couch' },
+        { folder: 'gift_box_with_a_ribbons', position: { x: -1, y: .25, z: -.5 }, rotation: { y: 0 }, type: 'gift' },
+        { folder: 'mirror', position: { x: -2.25, y: .75, z: -1 }, rotation: { y: 90 }, type: 'mirror' },
+        { folder: 'modern_side_lamp_and_stand', position: { x: 1.75, y: 0, z: -2.5 }, rotation: { y: 0 }, type: 'lamp' },
+        { folder: 'radio_broadcaster', position: { x: 0, y: 0, z: -2 }, rotation: { y: 0 }, type: 'radio' },
+        { folder: 'telephone', position: { x: 1, y: 0, z: 1 }, rotation: { y: 0 }, type: 'telephone' },
+        { folder: 'window_area', position: { x: 0, y: -.25, z: -3 }, rotation: { y: 0 }, type: 'window' },
+    ];
 
-        const data = await response.json();
-        
-        // Clear existing scene
-        clearScene();
-
-        // Load each object
-        data.objects.forEach(obj => {
-            const absoluteURL = `http://localhost:8000${obj.fileURL}`;
-            loadObject(absoluteURL, obj.position, obj.rotation, obj.type);
-        });
-
-    } catch (error) {
-        console.error('Error loading scene objects:', error);
-    }
+    // Load each specified model
+    models.forEach(model => {
+        loadObject(model.folder, model.position, model.rotation, model.type);
+    });
 }
-
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;

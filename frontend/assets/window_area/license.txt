@@ -1,0 +1,11 @@
+Model Information:
+* title:	Window Area
+* source:	https://sketchfab.com/3d-models/window-area-d9b3709b79264a9a9d26b32e532b7171
+* author:	singingstranger (https://sketchfab.com/singingstranger)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Window Area" (https://sketchfab.com/3d-models/window-area-d9b3709b79264a9a9d26b32e532b7171) by singingstranger (https://sketchfab.com/singingstranger) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

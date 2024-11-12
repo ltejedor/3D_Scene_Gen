@@ -1,0 +1,11 @@
+Model Information:
+* title:	Couch
+* source:	https://sketchfab.com/3d-models/couch-c48637d694b04666b93f892dfdc30cdc
+* author:	Mateusz Woliński (https://sketchfab.com/jeandiz)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Couch" (https://sketchfab.com/3d-models/couch-c48637d694b04666b93f892dfdc30cdc) by Mateusz Woliński (https://sketchfab.com/jeandiz) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

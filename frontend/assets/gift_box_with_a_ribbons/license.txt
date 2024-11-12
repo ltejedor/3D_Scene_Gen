@@ -1,0 +1,11 @@
+Model Information:
+* title:	Gift box with a ribbons
+* source:	https://sketchfab.com/3d-models/gift-box-with-a-ribbons-bc478081c5754b1d9782bfd53d1db734
+* author:	technics.polemics (https://sketchfab.com/technics.polemics)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Gift box with a ribbons" (https://sketchfab.com/3d-models/gift-box-with-a-ribbons-bc478081c5754b1d9782bfd53d1db734) by technics.polemics (https://sketchfab.com/technics.polemics) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
