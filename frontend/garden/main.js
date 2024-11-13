@@ -38,9 +38,17 @@ async function init() {
     renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
 
-    // Ground
+    // Ground with repeating texture
+    const textureLoader = new THREE.TextureLoader();
+    const grassTexture = textureLoader.load('../assets/grass.png');
+    grassTexture.wrapS = THREE.RepeatWrapping;
+    grassTexture.wrapT = THREE.RepeatWrapping;
+    grassTexture.repeat.set(50, 50); // Adjust these numbers to control how many times the texture repeats
+    
     const groundGeometry = new THREE.PlaneGeometry(200, 200);
-    const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x567d46 });
+    const groundMaterial = new THREE.MeshLambertMaterial({ 
+        map: grassTexture
+    });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
@@ -64,17 +72,26 @@ async function init() {
     document.addEventListener('keyup', onKeyUp);
     window.addEventListener('resize', onWindowResize, false);
 
-    createSpheres(stories);
+    // Load flower texture before creating spheres
+    const flowerTexture = await new Promise((resolve) => {
+        textureLoader.load('../assets/flowers.png', resolve);
+    });
+    flowerTexture.wrapS = THREE.RepeatWrapping;
+    flowerTexture.wrapT = THREE.RepeatWrapping;
+    flowerTexture.repeat.set(1.5, 1.5); // Adjust repeat value as needed
+
+    createSpheres(stories, flowerTexture);
     animate();
 }
 
-function createSpheres(stories) {
-    const sphereGeometry = new THREE.SphereGeometry(0.3, 32, 32);
+
+function createSpheres(stories, flowerTexture) {
+    const sphereGeometry = new THREE.SphereGeometry(0.3, 10, 10);
     const sphereMaterial = new THREE.MeshPhongMaterial({
-        color: 0x3498db,
-        emissive: 0x2980b9,
-        emissiveIntensity: 0.2,
-        shininess: 100
+        map: flowerTexture,
+        shininess: 5,
+        emissiveMap: flowerTexture,
+        emissiveIntensity: 0
     });
 
     stories.forEach((story, index) => {
@@ -83,7 +100,7 @@ function createSpheres(stories) {
         // Use TSNE1 for X and TSNE2 for Z coordinates
         sphere.position.x = story.TSNE1 * 2;
         sphere.position.z = story.TSNE2 * 2;
-        sphere.position.y = 1;
+        sphere.position.y = .2;
 
         sphere.castShadow = true;
         sphere.receiveShadow = true;
