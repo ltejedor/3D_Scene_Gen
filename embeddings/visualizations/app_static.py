@@ -130,6 +130,11 @@ def create_plot(df: pd.DataFrame, selected_categories: List[str]) -> go.Figure:
     
     return fig
 
+def export_leaving_points(df: pd.DataFrame) -> pd.DataFrame:
+    """Extract t-SNE coordinates and content for points labeled as 'leaving'"""
+    leaving_points = df[df['timing'] == 'after'][['TSNE1', 'TSNE2', 'content']]
+    return leaving_points
+
 def main():
     st.set_page_config(layout="wide")
     st.title("Story Chunk Visualization")
@@ -137,10 +142,20 @@ def main():
     # Load data with optimized parameters
     df = load_data()
     
-    # Sidebar controls
+    # Export leaving points
+    #leaving_points = export_leaving_points(df)
+    
+    # Display the coordinates and content
+    #st.subheader("Leaving Points Data")
+    #st.write("Number of 'leaving' points:", len(leaving_points))
+    
+    # Format the data for easy copying
+    #formatted_data = leaving_points.to_dict('records')
+    #st.json(formatted_data)
+    
+    # Original visualization code continues...
     st.sidebar.header("Categories")
     
-    # Category selectors
     time_periods = st.sidebar.multiselect(
         "Select Time Periods",
         ["beginning", "middle", "leaving", "after"],
@@ -153,10 +168,7 @@ def main():
         default=[]
     )
     
-    # Combine selected categories
     selected_categories = time_periods + tactics
-    
-    # Create and display plot
     fig = create_plot(df, selected_categories)
     st.plotly_chart(fig, use_container_width=True)
     
