@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Story Garden</title>
+    <link rel="stylesheet" href="../style.css">
     <style>
         body { margin: 0; }
         canvas { display: block; }
@@ -33,11 +34,11 @@
 </head>
 <body>
     <div id="tooltip"></div>
-    <div id="instructions">
-        WASD - Move<br>
-        Mouse - Look around<br>
-        Click sphere - Read story
+    <div id="object-overlay" class="hidden">
+        <p id="object-description"></p>
     </div>
+    <div id="scene-container"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script async src="https://cdn.jsdelivr.net/npm/three@0.137.5/examples/js/controls/PointerLockControls.js"></script>
     <script src="main.js"></script>

@@ -1,52 +1,46 @@
-let camera, scene, renderer, controls;
+let scene, camera, renderer;
+let spheres = [];
 let moveForward = false;
 let moveBackward = false;
-let moveLeft = false;
-let moveRight = false;
-let canJump = false;
-let prevTime = performance.now();
-let velocity = new THREE.Vector3();
-let direction = new THREE.Vector3();
-let stories = [];
-let spheres = [];
+let rotateLeft = false;
+let rotateRight = false;
+const moveSpeed = 0.1;
+const rotateSpeed = 0.03;
+const cameraHeight = 0.8;
+let highlightedSphere = null;
+const INTERACTION_DISTANCE = 2;
 
 async function init() {
+    const container = document.getElementById('scene-container');
+    
     // Load stories data
     const response = await fetch('stories.json');
-    stories = await response.json();
+    const stories = await response.json();
 
     // Scene setup
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x88ccff); // Light blue sky
+    scene.background = new THREE.Color(0x88ccff);
     scene.fog = new THREE.Fog(0x88ccff, 0, 100);
 
     // Camera setup
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.y = 2; // Eye level
+    camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+    );
+    camera.position.set(0, cameraHeight, 5);
+    camera.lookAt(0, cameraHeight, 0);
 
     // Renderer setup
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
-    document.body.appendChild(renderer.domElement);
-
-    // Controls setup
-    controls = new THREE.PointerLockControls(camera, document.body);
-
-    // Click to start
-    document.addEventListener('click', function() {
-        if (!controls.isLocked) {
-            controls.lock();
-        }
-    });
-
-    // Movement
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('keyup', onKeyUp);
+    container.appendChild(renderer.domElement);
 
     // Ground
     const groundGeometry = new THREE.PlaneGeometry(200, 200);
-    const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x567d46 }); // Garden green
+    const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x567d46 });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
@@ -61,15 +55,21 @@ async function init() {
     directionalLight.castShadow = true;
     scene.add(directionalLight);
 
-    // Create story spheres
-    createSpheres();
+    // Add grid helper
+    const gridHelper = new THREE.GridHelper(20, 20);
+    scene.add(gridHelper);
 
-    // Start animation loop
+    // Controls
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
+    window.addEventListener('resize', onWindowResize, false);
+
+    createSpheres(stories);
     animate();
 }
 
-function createSpheres() {
-    const sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+function createSpheres(stories) {
+    const sphereGeometry = new THREE.SphereGeometry(0.3, 32, 32);
     const sphereMaterial = new THREE.MeshPhongMaterial({
         color: 0x3498db,
         emissive: 0x2980b9,
@@ -80,54 +80,28 @@ function createSpheres() {
     stories.forEach((story, index) => {
         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial.clone());
         
-        // Use TSNE1 and TSNE2 for x and z coordinates
-        sphere.position.x = story.TSNE1 * 2; // Scale the positions as needed
+        // Use TSNE1 for X and TSNE2 for Z coordinates
+        sphere.position.x = story.TSNE1 * 2;
         sphere.position.z = story.TSNE2 * 2;
-        sphere.position.y = 1; // Consistent height
+        sphere.position.y = 1;
 
         sphere.castShadow = true;
         sphere.receiveShadow = true;
         
-        // Store the story content with the sphere
-        sphere.userData.content = story.content;
-        sphere.userData.index = index;
+        sphere.userData = {
+            content: story.content,
+            index: index,
+            originalMaterial: sphere.material.clone(),
+            type: 'story_sphere'
+        };
 
         spheres.push(sphere);
         scene.add(sphere);
     });
-
-    // Add click interaction
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
-    window.addEventListener('click', (event) => {
-        if (!controls.isLocked) return;
-
-        raycaster.setFromCamera({ x: 0, y: 0 }, camera);
-        const intersects = raycaster.intersectObjects(spheres);
-
-        if (intersects.length > 0) {
-            const sphere = intersects[0].object;
-            const tooltip = document.getElementById('tooltip');
-            tooltip.style.display = 'block';
-            tooltip.style.left = '50%';
-            tooltip.style.top = '50%';
-            tooltip.style.transform = 'translate(-50%, -50%)';
-            tooltip.textContent = sphere.userData.content;
-
-            // Highlight the selected sphere
-            sphere.material.emissiveIntensity = 0.8;
-            setTimeout(() => {
-                sphere.material.emissiveIntensity = 0.2;
-            }, 1000);
-        } else {
-            document.getElementById('tooltip').style.display = 'none';
-        }
-    });
 }
 
 function onKeyDown(event) {
-    switch (event.code) {
+    switch(event.code) {
         case 'ArrowUp':
         case 'KeyW':
             moveForward = true;
@@ -138,17 +112,17 @@ function onKeyDown(event) {
             break;
         case 'ArrowLeft':
         case 'KeyA':
-            moveLeft = true;
+            rotateLeft = true;
             break;
         case 'ArrowRight':
         case 'KeyD':
-            moveRight = true;
+            rotateRight = true;
             break;
     }
 }
 
 function onKeyUp(event) {
-    switch (event.code) {
+    switch(event.code) {
         case 'ArrowUp':
         case 'KeyW':
             moveForward = false;
@@ -159,48 +133,90 @@ function onKeyUp(event) {
             break;
         case 'ArrowLeft':
         case 'KeyA':
-            moveLeft = false;
+            rotateLeft = false;
             break;
         case 'ArrowRight':
         case 'KeyD':
-            moveRight = false;
+            rotateRight = false;
             break;
     }
 }
 
-function animate() {
-    requestAnimationFrame(animate);
-
-    if (controls.isLocked) {
-        const time = performance.now();
-        const delta = (time - prevTime) / 1000;
-
-        velocity.x -= velocity.x * 10.0 * delta;
-        velocity.z -= velocity.z * 10.0 * delta;
-
-        direction.z = Number(moveForward) - Number(moveBackward);
-        direction.x = Number(moveRight) - Number(moveLeft);
-        direction.normalize();
-
-        if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
-        if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
-
-        controls.moveRight(-velocity.x * delta);
-        controls.moveForward(-velocity.z * delta);
-
-        prevTime = time;
+function updateCamera() {
+    // Handle rotation
+    if (rotateLeft) {
+        camera.rotation.y += rotateSpeed;
     }
-
-    renderer.render(scene, camera);
+    if (rotateRight) {
+        camera.rotation.y -= rotateSpeed;
+    }
+    
+    // Get forward direction
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+    
+    // Handle movement
+    if (moveForward) {
+        camera.position.add(direction.multiplyScalar(moveSpeed));
+    }
+    if (moveBackward) {
+        camera.position.add(direction.multiplyScalar(-moveSpeed));
+    }
+    
+    // Maintain fixed height
+    camera.position.y = cameraHeight;
 }
 
-// Handle window resizing
+function checkProximity() {
+    let closestSphere = null;
+    let closestDistance = Infinity;
+
+    spheres.forEach(sphere => {
+        const distance = camera.position.distanceTo(sphere.position);
+        
+        if (distance < INTERACTION_DISTANCE && distance < closestDistance) {
+            closestDistance = distance;
+            closestSphere = sphere;
+        }
+    });
+
+    // Handle highlighting and overlay
+    if (closestSphere !== highlightedSphere) {
+        // Remove highlight from previous sphere
+        if (highlightedSphere) {
+            highlightedSphere.material = highlightedSphere.userData.originalMaterial.clone();
+            document.getElementById('object-overlay').classList.add('hidden');
+        }
+
+        // Add highlight to new sphere
+        if (closestSphere) {
+            const highlightMaterial = closestSphere.userData.originalMaterial.clone();
+            highlightMaterial.emissive = new THREE.Color(0x666666);
+            highlightMaterial.emissiveIntensity = 0.5;
+            closestSphere.material = highlightMaterial;
+            
+            // Show text overlay
+            const overlay = document.getElementById('object-overlay');
+            const description = document.getElementById('object-description');
+            description.textContent = closestSphere.userData.content;
+            overlay.classList.remove('hidden');
+        }
+
+        highlightedSphere = closestSphere;
+    }
+}
+
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-window.addEventListener('resize', onWindowResize, false);
+function animate() {
+    requestAnimationFrame(animate);
+    updateCamera();
+    checkProximity();
+    renderer.render(scene, camera);
+}
 
 init();
